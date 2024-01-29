@@ -11,6 +11,8 @@ import fr.free.nrw.commons.actions.PageEditClient;
 import fr.free.nrw.commons.actions.PageEditInterface;
 import fr.free.nrw.commons.actions.ThanksInterface;
 import fr.free.nrw.commons.auth.SessionManager;
+import fr.free.nrw.commons.auth.csrf.CsrfTokenInterface;
+import fr.free.nrw.commons.auth.login.LoginInterface;
 import fr.free.nrw.commons.category.CategoryInterface;
 import fr.free.nrw.commons.explore.depictions.DepictsClient;
 import fr.free.nrw.commons.kvstore.JsonKvStore;
@@ -37,7 +39,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
 import fr.free.nrw.commons.auth.csrf.CsrfTokenClient;
-import org.wikipedia.dataclient.Service;
 import org.wikipedia.dataclient.ServiceFactory;
 import org.wikipedia.dataclient.WikiSite;
 import org.wikipedia.json.GsonUtil;
@@ -48,9 +49,7 @@ import timber.log.Timber;
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class NetworkingModule {
     private static final String WIKIDATA_SPARQL_QUERY_URL = "https://query.wikidata.org/sparql";
-    private static final String TOOLS_FORGE_URL = "https://tools.wmflabs.org/urbanecmbot/commonsmisc";
-
-    private static final String TEST_TOOLS_FORGE_URL = "https://tools.wmflabs.org/commons-android-app/tool-commons-android-app";
+    private static final String TOOLS_FORGE_URL = "https://tools.wmflabs.org/commons-android-app/tool-commons-android-app";
 
     public static final long OK_HTTP_CACHE_SIZE = 10 * 1024 * 1024;
 
@@ -91,13 +90,11 @@ public class NetworkingModule {
     public OkHttpJsonApiClient provideOkHttpJsonApiClient(OkHttpClient okHttpClient,
                                                           DepictsClient depictsClient,
                                                           @Named("tools_forge") HttpUrl toolsForgeUrl,
-                                                          @Named("test_tools_forge") HttpUrl testToolsForgeUrl,
                                                           @Named("default_preferences") JsonKvStore defaultKvStore,
                                                           Gson gson) {
         return new OkHttpJsonApiClient(okHttpClient,
                 depictsClient,
                 toolsForgeUrl,
-                testToolsForgeUrl,
                 WIKIDATA_SPARQL_QUERY_URL,
                 BuildConfig.WIKIMEDIA_CAMPAIGNS_URL,
             gson);
@@ -106,15 +103,27 @@ public class NetworkingModule {
     @Named(NAMED_COMMONS_CSRF)
     @Provides
     @Singleton
-    public CsrfTokenClient provideCommonsCsrfTokenClient(
-        @Named(NAMED_COMMONS_WIKI_SITE) WikiSite commonsWikiSite, SessionManager sessionManager) {
-        return new CsrfTokenClient(commonsWikiSite, sessionManager);
+    public CsrfTokenClient provideCommonsCsrfTokenClient(SessionManager sessionManager,
+        CsrfTokenInterface tokenInterface, LoginClient loginClient) {
+        return new CsrfTokenClient(sessionManager, tokenInterface, loginClient);
     }
 
     @Provides
     @Singleton
-    public LoginClient provideLoginClient() {
-        return new LoginClient();
+    public CsrfTokenInterface provideCsrfTokenInterface(@Named(NAMED_COMMONS_WIKI_SITE) WikiSite commonsWikiSite) {
+        return ServiceFactory.get(commonsWikiSite, BuildConfig.COMMONS_URL, CsrfTokenInterface.class);
+    }
+
+    @Provides
+    @Singleton
+    public LoginInterface provideLoginInterface(@Named(NAMED_COMMONS_WIKI_SITE) WikiSite commonsWikiSite) {
+        return ServiceFactory.get(commonsWikiSite, BuildConfig.COMMONS_URL, LoginInterface.class);
+    }
+
+    @Provides
+    @Singleton
+    public LoginClient provideLoginClient(LoginInterface loginInterface) {
+        return new LoginClient(loginInterface);
     }
 
     @Provides
@@ -131,14 +140,6 @@ public class NetworkingModule {
     @SuppressWarnings("ConstantConditions")
     public HttpUrl provideToolsForgeUrl() {
         return HttpUrl.parse(TOOLS_FORGE_URL);
-    }
-
-    @Provides
-    @Named("test_tools_forge")
-    @NonNull
-    @SuppressWarnings("ConstantConditions")
-    public HttpUrl provideTestToolsForgeUrl() {
-        return HttpUrl.parse(TEST_TOOLS_FORGE_URL);
     }
 
     @Provides
