@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ApplicationProvider
+import fr.free.nrw.commons.Media
 import fr.free.nrw.commons.R
 import fr.free.nrw.commons.TestCommonsApplication
 import fr.free.nrw.commons.databinding.ActivityDescriptionEditBinding
@@ -31,6 +32,7 @@ import org.mockito.MockitoAnnotations
 import org.powermock.reflect.Whitebox
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
@@ -55,18 +57,24 @@ class DescriptionEditActivityUnitTest {
     @Mock
     private lateinit var rvDescriptions: RecyclerView
 
+    private lateinit var media: Media
+
     @Before
     @Throws(Exception::class)
     fun setUp() {
         MockitoAnnotations.initMocks(this)
-        context = ApplicationProvider.getApplicationContext()
+        context = RuntimeEnvironment.getApplication().applicationContext
         uploadMediaDetails = mutableListOf(UploadMediaDetail("en", "desc"))
                 as ArrayList<UploadMediaDetail>
+        media = Media("filename", "creator", "url", "thumburl",
+            "localpath", Date(197000), "extmetadata")
+
         val intent = Intent().putExtra("title", "read")
         val bundle = Bundle()
         bundle.putParcelableArrayList(LIST_OF_DESCRIPTION_AND_CAPTION, uploadMediaDetails)
         bundle.putString(WIKITEXT, "desc")
         bundle.putString(Prefs.DESCRIPTION_LANGUAGE, "bn")
+        bundle.putParcelable("media", media)
         intent.putExtras(bundle)
         activity =
             Robolectric.buildActivity(DescriptionEditActivity::class.java, intent).create().get()
@@ -78,6 +86,8 @@ class DescriptionEditActivityUnitTest {
         Whitebox.setInternalState(activity, "rvDescriptions", rvDescriptions)
         Whitebox.setInternalState(activity, "binding", binding)
         Whitebox.setInternalState(activity, "savedLanguageValue", "bn")
+        Whitebox.setInternalState(activity, "media", media)
+        Whitebox.setInternalState(activity,"descriptionAndCaptions",uploadMediaDetails)
         `when`(uploadMediaDetailAdapter.items).thenReturn(uploadMediaDetails)
     }
 
